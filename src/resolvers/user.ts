@@ -122,10 +122,32 @@ export class UserResolver {
     const { username, password } = options;
     const user = await em.findOne(User, { username });
 
+    if (!username) {
+      return getFieldErrors("username", "Username is required");
+    } else if (username.length <= 5) {
+      return getFieldErrors(
+        "username",
+        "Username length must be greater than 5"
+      );
+    }
+
+    if (!password) {
+      return getFieldErrors("password", "Password is required");
+    } else if (password.length <= 5) {
+      return {
+        errors: [
+          {
+            field: "password",
+            message: "Password length must be greater than 5",
+          },
+        ],
+      };
+    }
+
     const errors = {
       errors: [
         {
-          field: "username or password",
+          field: "username",
           message: "There is no user with the given credentials",
         },
       ],

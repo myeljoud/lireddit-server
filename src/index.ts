@@ -19,7 +19,12 @@ const main = async () => {
 
   const app = express();
 
-  app.use(cors({ origin: process.env.CORS_ORIGIN, credentials: true }));
+  app.use(
+    cors({
+      origin: ["http://localhost:3030", "https://studio.apollographql.com"],
+      credentials: true,
+    })
+  );
 
   const RedisStore = connectRedis(session);
   const redis = new Redis(process.env.REDIS_URL);
