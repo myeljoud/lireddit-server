@@ -1,14 +1,13 @@
 import argon2 from "argon2";
+import { validateLogin } from "../utils/loginValidation";
+import { Arg, Ctx, Mutation, Query, Resolver } from "type-graphql";
+import { COOKIE_NAME, emailPattern } from "../constants";
+import { User } from "../entities/User";
+import { MyContext } from "../types";
 import {
   validateRegister,
   validateRegisterDuplicate,
 } from "../utils/registerValidation";
-import { Arg, Ctx, Mutation, Query, Resolver } from "type-graphql";
-import { COOKIE_NAME } from "../constants";
-import { User } from "../entities/User";
-import { MyContext } from "../types";
-import { getFieldErrors } from "../utils/utils";
-import { LoginInputs } from "./LoginInputs";
 import { RegisterInputs } from "./RegisterInputs";
 import { UserResponse } from "./UserResponse";
 
@@ -60,51 +59,37 @@ export class UserResolver {
 
   @Mutation(() => UserResponse)
   async login(
-    @Arg("options") options: LoginInputs,
+    @Arg("usernameOrEmail") usernameOrEmail: string,
+    @Arg("password") password: string,
     @Ctx() { em, req }: MyContext
   ): Promise<UserResponse> {
-    const { username, password } = options;
-    const user = await em.findOne(User, { username });
+    const errors = validateLogin({ usernameOrEmail, password });
 
-    if (!username) {
-      return getFieldErrors("username", "Username is required");
-    } else if (username.length <= 5) {
-      return getFieldErrors(
-        "username",
-        "Username length must be greater than 5"
-      );
+    if (errors) {
+      return { errors };
     }
 
-    if (!password) {
-      return getFieldErrors("password", "Password is required");
-    } else if (password.length <= 5) {
-      return {
-        errors: [
-          {
-            field: "password",
-            message: "Password length must be greater than 5",
-          },
-        ],
-      };
-    }
+    const isUsername = !emailPattern.test(usernameOrEmail);
+    const user = await em.findOne(
+      User,
+      isUsername ? { username: usernameOrEmail } : { email: usernameOrEmail }
+    );
 
-    const errors = {
-      errors: [
-        {
-          field: "username",
-          message: "There is no user with the given credentials",
-        },
-      ],
-    };
+    const wrongUserError = [
+      {
+        field: "password",
+        message: "There is no user with the given credentials",
+      },
+    ];
 
     if (!user) {
-      return errors;
+      return { errors: wrongUserError };
     }
 
     const valid = await argon2.verify(user.password, password);
 
     if (!valid) {
-      return errors;
+      return { errors: wrongUserError };
     }
 
     req.session.userId = user.id;

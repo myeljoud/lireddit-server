@@ -3,7 +3,7 @@ import { Field, InputType } from "type-graphql";
 @InputType()
 export class LoginInputs {
   @Field()
-  username: string;
+  usernameOrEmail: string;
   @Field()
   password: string;
 }
