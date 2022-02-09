@@ -1,7 +1,7 @@
 import argon2 from "argon2";
 import { validateLogin } from "../utils/loginValidation";
 import { Arg, Ctx, Mutation, Query, Resolver } from "type-graphql";
-import { COOKIE_NAME, emailPattern } from "../constants";
+import { COOKIE_NAME, emailPattern, PASSWORD_RESET_PREFIX } from "../constants";
 import { User } from "../entities/User";
 import { MyContext } from "../types";
 import {
@@ -10,6 +10,8 @@ import {
 } from "../utils/registerValidation";
 import { RegisterInputs } from "./RegisterInputs";
 import { UserResponse } from "./UserResponse";
+import { sendEmail } from "../utils/sendEmail";
+import { v4 } from "uuid";
 
 @Resolver()
 export class UserResolver {
@@ -22,6 +24,36 @@ export class UserResolver {
     const user = await em.findOne(User, { id: req.session.userId });
 
     return user;
+  }
+
+  @Mutation(() => Boolean)
+  async forgotPassword(
+    @Arg("email") email: string,
+    @Ctx() { em, redis }: MyContext
+  ) {
+    const user = await em.findOne(User, { email });
+
+    if (!user) {
+      return true;
+    }
+
+    const passwordResetUrlToken = v4();
+
+    await redis.set(
+      PASSWORD_RESET_PREFIX + passwordResetUrlToken,
+      user.id,
+      "ex",
+      1000 * 60 * 60 * 24 // one day
+    );
+
+    const passwordResetEmailSubject = "Password reset request";
+    const passwordResetUrl = `http://localhost:3030/password-reset/${passwordResetUrlToken}`;
+
+    const passwordResetEmailBody = `<div><h1>Reset your password?</h1><p>If you requested a password reset for ${email}, click the link below. If you didn't make this request, ignore this email.</p><a style="color: "#285e61';" href="${passwordResetUrl}">Reset password</a><br /><br /><small>Link valid for 1 day!</small></div>`;
+
+    await sendEmail(email, passwordResetEmailSubject, passwordResetEmailBody);
+
+    return true;
   }
 
   @Mutation(() => UserResponse)
