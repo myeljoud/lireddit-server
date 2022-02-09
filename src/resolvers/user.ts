@@ -77,7 +77,7 @@ export class UserResolver {
 
     const wrongUserError = [
       {
-        field: "password",
+        field: "usernameOrEmail",
         message: "There is no user with the given credentials",
       },
     ];
