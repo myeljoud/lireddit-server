@@ -10,3 +10,7 @@ export function getFieldErrors(field: string, message: string): FieldError {
     ],
   };
 }
+
+export const sleep = (ms: number) => {
+  return new Promise(resolve => setTimeout(resolve, ms));
+};
