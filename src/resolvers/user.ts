@@ -1,53 +1,16 @@
 import argon2 from "argon2";
 import {
-  Arg,
-  Ctx,
-  Field,
-  InputType,
-  Mutation,
-  ObjectType,
-  Query,
-  Resolver,
-} from "type-graphql";
+  validateRegister,
+  validateRegisterDuplicate,
+} from "../utils/registerValidation";
+import { Arg, Ctx, Mutation, Query, Resolver } from "type-graphql";
 import { COOKIE_NAME } from "../constants";
 import { User } from "../entities/User";
 import { MyContext } from "../types";
 import { getFieldErrors } from "../utils/utils";
-
-@InputType()
-class RegisterInputs {
-  @Field()
-  username: string;
-  @Field()
-  email: string;
-  @Field()
-  password: string;
-}
-
-@InputType()
-class LoginInputs {
-  @Field()
-  username: string;
-  @Field()
-  password: string;
-}
-
-@ObjectType()
-class FieldError {
-  @Field()
-  field: string;
-  @Field()
-  message: string;
-}
-
-@ObjectType()
-class UserResponse {
-  @Field(() => [FieldError], { nullable: true })
-  errors?: FieldError[];
-
-  @Field(() => User, { nullable: true })
-  user?: User;
-}
+import { LoginInputs } from "./LoginInputs";
+import { RegisterInputs } from "./RegisterInputs";
+import { UserResponse } from "./UserResponse";
 
 @Resolver()
 export class UserResolver {
@@ -68,33 +31,13 @@ export class UserResolver {
     @Ctx() { em, req }: MyContext
   ): Promise<UserResponse> {
     const { username, email, password } = options;
-    if (!username) {
-      return getFieldErrors("username", "Username is required");
-    } else if (username.length <= 5) {
-      return getFieldErrors(
-        "username",
-        "Username length must be greater than 5"
-      );
+
+    const errors = validateRegister(options);
+
+    if (errors) {
+      return { errors };
     }
 
-    if (!email) {
-      return getFieldErrors("email", "Email is required");
-    } else if (!/^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,4}$/i.test(email)) {
-      return getFieldErrors("email", "Invalid email address");
-    }
-
-    if (!password) {
-      return getFieldErrors("password", "Password is required");
-    } else if (password.length <= 5) {
-      return {
-        errors: [
-          {
-            field: "password",
-            message: "Password length must be greater than 5",
-          },
-        ],
-      };
-    }
     const hashedPassword = await argon2.hash(password);
 
     const user = em.create(User, { username, email, password: hashedPassword });
@@ -102,10 +45,10 @@ export class UserResolver {
       await em.persistAndFlush(user);
     } catch (error) {
       if (error.code === "23505" || error.detail.includes("already exists")) {
-        if (error.detail.includes("Key (email)")) {
-          return getFieldErrors("email", "This email is taken");
-        } else if (error.detail.includes("Key (username)")) {
-          return getFieldErrors("username", "This username is taken");
+        const duplicateError = validateRegisterDuplicate(error.detail);
+
+        if (duplicateError) {
+          return { errors: duplicateError };
         }
       }
     }
