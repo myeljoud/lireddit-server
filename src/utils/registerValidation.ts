@@ -1,4 +1,4 @@
-import { emailPattern } from "../constants";
+import { emailPattern, usernamePattern } from "../constants";
 import { RegisterInputs } from "../resolvers/RegisterInputs";
 
 export const validateRegister = (options: RegisterInputs) => {
@@ -11,11 +11,14 @@ export const validateRegister = (options: RegisterInputs) => {
         message: "Username is required",
       },
     ];
-  } else if (username.length <= 5) {
+  }
+
+  if (!usernamePattern.test(username)) {
     return [
       {
         field: "username",
-        message: "Username length must be greater than 5",
+        message:
+          "Username must be 4 characters at least, and only contains lowercase letters, numbers, - and _",
       },
     ];
   }
@@ -27,7 +30,9 @@ export const validateRegister = (options: RegisterInputs) => {
         message: "Email is required",
       },
     ];
-  } else if (!emailPattern.test(email)) {
+  }
+
+  if (!emailPattern.test(email)) {
     return [
       {
         field: "email",
@@ -43,7 +48,9 @@ export const validateRegister = (options: RegisterInputs) => {
         message: "Password is required",
       },
     ];
-  } else if (password.length <= 5) {
+  }
+
+  if (password.length <= 5) {
     return [
       {
         field: "password",
