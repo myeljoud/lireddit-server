@@ -1,5 +1,4 @@
 import argon2 from "argon2";
-import { COOKIE_NAME } from "src/constants";
 import {
   Arg,
   Ctx,
@@ -10,6 +9,7 @@ import {
   Query,
   Resolver,
 } from "type-graphql";
+import { COOKIE_NAME } from "../constants";
 import { User } from "../entities/User";
 import { MyContext } from "../types";
 import { getFieldErrors } from "../utils/utils";
