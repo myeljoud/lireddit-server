@@ -1,17 +1,18 @@
 import argon2 from "argon2";
-import { validateLogin } from "../utils/loginValidation";
 import { Arg, Ctx, Mutation, Query, Resolver } from "type-graphql";
+import { v4 } from "uuid";
 import { COOKIE_NAME, emailPattern, PASSWORD_RESET_PREFIX } from "../constants";
 import { User } from "../entities/User";
 import { MyContext } from "../types";
+import { validateLogin } from "../utils/loginValidation";
+import { validatePasswordReset } from "../utils/passwordResetValidation";
 import {
   validateRegister,
   validateRegisterDuplicate,
 } from "../utils/registerValidation";
+import { sendEmail } from "../utils/sendEmail";
 import { RegisterInputs } from "./RegisterInputs";
 import { UserResponse } from "./UserResponse";
-import { sendEmail } from "../utils/sendEmail";
-import { v4 } from "uuid";
 
 @Resolver()
 export class UserResolver {
@@ -26,11 +27,65 @@ export class UserResolver {
     return user;
   }
 
+  @Mutation(() => UserResponse)
+  async passwordReset(
+    @Arg("newPassword") newPassword: string,
+    @Arg("passwordConfirmation") passwordConfirmation: string,
+    @Arg("token") token: string,
+    @Ctx() { em, redis, req }: MyContext
+  ): Promise<UserResponse> {
+    const errors = validatePasswordReset({ newPassword, passwordConfirmation });
+
+    if (errors) {
+      return { errors };
+    }
+    const tokenKey = PASSWORD_RESET_PREFIX + token;
+    const userId = await redis.get(tokenKey);
+
+    if (!userId) {
+      return {
+        errors: [
+          {
+            field: "token",
+            message: "This token has expired!",
+          },
+        ],
+      };
+    }
+
+    const userIdInt = parseInt(userId);
+
+    const user = await em.findOne(User, { id: userIdInt });
+
+    if (!user) {
+      return {
+        errors: [
+          {
+            field: "token",
+            message: "This user no longer exists!",
+          },
+        ],
+      };
+    }
+
+    user.password = await argon2.hash(newPassword);
+
+    await redis.del(tokenKey);
+
+    req.session.userId = userIdInt;
+
+    return { user };
+  }
+
   @Mutation(() => Boolean)
   async forgotPassword(
     @Arg("email") email: string,
     @Ctx() { em, redis }: MyContext
-  ) {
+  ): Promise<boolean> {
+    if (!email || !emailPattern.test(email)) {
+      return false;
+    }
+
     const user = await em.findOne(User, { email });
 
     if (!user) {
