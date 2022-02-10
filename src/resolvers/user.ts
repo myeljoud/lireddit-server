@@ -70,6 +70,7 @@ export class UserResolver {
 
     user.password = await argon2.hash(newPassword);
 
+    await em.persistAndFlush(user);
     await redis.del(tokenKey);
 
     req.session.userId = userIdInt;
