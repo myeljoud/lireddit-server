@@ -11,6 +11,7 @@ import {
   validateRegisterDuplicate,
 } from "../utils/registerValidation";
 import { sendEmail } from "../utils/sendEmail";
+import { getRandomArbitrary, sleep } from "../utils/utils";
 import { RegisterInputs } from "./RegisterInputs";
 import { UserResponse } from "./UserResponse";
 
@@ -73,7 +74,7 @@ export class UserResolver {
     await em.persistAndFlush(user);
     await redis.del(tokenKey);
 
-    req.session.userId = userIdInt;
+    req.session.userId = user.id;
 
     return { user };
   }
@@ -90,6 +91,7 @@ export class UserResolver {
     const user = await em.findOne(User, { email });
 
     if (!user) {
+      await sleep(getRandomArbitrary(5, 8) * 1000);
       return true;
     }
 
