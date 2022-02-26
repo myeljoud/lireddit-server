@@ -26,6 +26,7 @@ const main = async () => {
   });
 
   const app = express();
+  !__prod__ && app.set("trust proxy", 1);
 
   app.use(
     cors({
@@ -46,9 +47,12 @@ const main = async () => {
       resave: false,
       cookie: {
         maxAge: 1000 * 60 * 60 * 24 * 365 * 10,
-        httpOnly: true,
-        sameSite: "lax",
-        secure: __prod__,
+        // httpOnly: true,
+        // sameSite: "lax",
+        // secure: __prod__,
+        httpOnly: false,
+        sameSite: "none",
+        secure: true,
       },
     })
   );
