@@ -1,5 +1,3 @@
-import { isAuth } from "../middleware/isAuth";
-import { MyContext } from "../types";
 import {
   Arg,
   Ctx,
@@ -9,7 +7,11 @@ import {
   UseMiddleware,
 } from "type-graphql";
 import { Post } from "../entities/Post";
+import { isAuth } from "../middleware/isAuth";
+import { MyContext } from "../types";
+import { createPostValidation } from "../utils/createPostValidation";
 import { PostInput } from "./PostInput";
+import { PostResponse } from "./PostResponse";
 
 @Resolver()
 export class PostResolver {
@@ -23,13 +25,24 @@ export class PostResolver {
     return Post.findOne(id);
   }
 
-  @Mutation(() => Post)
+  @Mutation(() => PostResponse)
   @UseMiddleware(isAuth)
   async createPost(
     @Arg("inputs") inputs: PostInput,
     @Ctx() { req }: MyContext
-  ): Promise<Post> {
-    return Post.create({ ...inputs, authorId: req.session.userId }).save();
+  ): Promise<PostResponse> {
+    const errors = createPostValidation(inputs);
+
+    if (errors) {
+      return { errors };
+    }
+
+    const post = await Post.create({
+      ...inputs,
+      authorId: req.session.userId,
+    }).save();
+
+    return { post };
   }
 
   @Mutation(() => Post, { nullable: true })

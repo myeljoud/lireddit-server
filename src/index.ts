@@ -47,12 +47,12 @@ const main = async () => {
       resave: false,
       cookie: {
         maxAge: 1000 * 60 * 60 * 24 * 365 * 10,
-        // httpOnly: true,
-        // sameSite: "lax",
-        // secure: __prod__,
-        httpOnly: false,
-        sameSite: "none",
-        secure: true,
+        httpOnly: true,
+        sameSite: "lax",
+        secure: __prod__,
+        // httpOnly: false,
+        // sameSite: "none",
+        // secure: true,
       },
     })
   );
