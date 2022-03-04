@@ -14,18 +14,17 @@ import { sendEmail } from "../utils/sendEmail";
 import { getRandomArbitrary, sleep } from "../utils/utils";
 import { RegisterInputs } from "./RegisterInputs";
 import { UserResponse } from "./UserResponse";
+import { getConnection } from "typeorm";
 
 @Resolver()
 export class UserResolver {
   @Query(() => User, { nullable: true })
-  async me(@Ctx() { em, req }: MyContext): Promise<User | null> {
+  async me(@Ctx() { req }: MyContext): Promise<User | undefined> {
     if (!req.session.userId) {
-      return null;
+      return undefined;
     }
 
-    const user = await em.findOne(User, { id: req.session.userId });
-
-    return user;
+    return User.findOne(req.session.userId);
   }
 
   @Mutation(() => UserResponse)
@@ -33,13 +32,14 @@ export class UserResolver {
     @Arg("newPassword") newPassword: string,
     @Arg("passwordConfirmation") passwordConfirmation: string,
     @Arg("token") token: string,
-    @Ctx() { em, redis, req }: MyContext
+    @Ctx() { redis, req }: MyContext
   ): Promise<UserResponse> {
     const errors = validatePasswordReset({ newPassword, passwordConfirmation });
 
     if (errors) {
       return { errors };
     }
+
     const tokenKey = PASSWORD_RESET_PREFIX + token;
     const userId = await redis.get(tokenKey);
 
@@ -48,7 +48,7 @@ export class UserResolver {
         errors: [
           {
             field: "token",
-            message: "This token has expired!",
+            message: "Invalid or expired token!",
           },
         ],
       };
@@ -56,7 +56,7 @@ export class UserResolver {
 
     const userIdInt = parseInt(userId);
 
-    const user = await em.findOne(User, { id: userIdInt });
+    const user = await User.findOne(userIdInt);
 
     if (!user) {
       return {
@@ -69,9 +69,9 @@ export class UserResolver {
       };
     }
 
-    user.password = await argon2.hash(newPassword);
+    const hashedPassword = await argon2.hash(newPassword);
+    await User.update({ id: userIdInt }, { password: hashedPassword });
 
-    await em.persistAndFlush(user);
     await redis.del(tokenKey);
 
     req.session.userId = user.id;
@@ -82,16 +82,16 @@ export class UserResolver {
   @Mutation(() => Boolean)
   async forgotPassword(
     @Arg("email") email: string,
-    @Ctx() { em, redis }: MyContext
+    @Ctx() { redis }: MyContext
   ): Promise<boolean> {
     if (!email || !emailPattern.test(email)) {
       return false;
     }
 
-    const user = await em.findOne(User, { email });
+    const user = await User.findOne({ where: { email } });
 
     if (!user) {
-      await sleep(getRandomArbitrary(5, 8) * 1000);
+      await sleep(getRandomArbitrary(3, 7) * 1000);
       return true;
     }
 
@@ -117,7 +117,7 @@ export class UserResolver {
   @Mutation(() => UserResponse)
   async register(
     @Arg("options") options: RegisterInputs,
-    @Ctx() { em, req }: MyContext
+    @Ctx() { req }: MyContext
   ): Promise<UserResponse> {
     const { username, email, password } = options;
 
@@ -128,10 +128,17 @@ export class UserResolver {
     }
 
     const hashedPassword = await argon2.hash(password);
-
-    const user = em.create(User, { username, email, password: hashedPassword });
+    let user;
     try {
-      await em.persistAndFlush(user);
+      const result = await getConnection()
+        .createQueryBuilder()
+        .insert()
+        .into(User)
+        .values({ username, email, password: hashedPassword })
+        .returning("*")
+        .execute();
+
+      user = result.raw[0];
     } catch (error) {
       if (error.code === "23505" || error.detail.includes("already exists")) {
         const duplicateError = validateRegisterDuplicate(error.detail);
@@ -142,7 +149,7 @@ export class UserResolver {
       }
     }
 
-    req.session.userId = user.id;
+    req.session.userId = user?.id;
 
     return { user };
   }
@@ -151,7 +158,7 @@ export class UserResolver {
   async login(
     @Arg("usernameOrEmail") usernameOrEmail: string,
     @Arg("password") password: string,
-    @Ctx() { em, req }: MyContext
+    @Ctx() { req }: MyContext
   ): Promise<UserResponse> {
     const errors = validateLogin({ usernameOrEmail, password });
 
@@ -160,10 +167,12 @@ export class UserResolver {
     }
 
     const isUsername = !emailPattern.test(usernameOrEmail);
-    const user = await em.findOne(
-      User,
-      isUsername ? { username: usernameOrEmail } : { email: usernameOrEmail }
-    );
+
+    const user = await User.findOne({
+      where: isUsername
+        ? { username: usernameOrEmail }
+        : { email: usernameOrEmail },
+    });
 
     const wrongUserError = [
       {

@@ -1,4 +1,3 @@
-import { MikroORM } from "@mikro-orm/core";
 import { ApolloServer } from "apollo-server-express";
 import connectRedis from "connect-redis";
 import cors from "cors";
@@ -7,17 +6,27 @@ import session from "express-session";
 import Redis from "ioredis";
 import "reflect-metadata";
 import { buildSchema } from "type-graphql";
+import { createConnection } from "typeorm";
 import { COOKIE_NAME, __prod__ } from "./constants";
-import mikroOrmConfig from "./mikro-orm.config";
+import { Post } from "./entities/Post";
+import { User } from "./entities/User";
 import { PostResolver } from "./resolvers/post";
 import { UserResolver } from "./resolvers/user";
 import { MyContext } from "./types";
 
 const main = async () => {
-  const orm = await MikroORM.init(mikroOrmConfig);
-  await orm.getMigrator().up();
+  await createConnection({
+    type: "postgres",
+    database: "lireddit2",
+    username: "postgres",
+    password: "Mohamed@27020450",
+    logging: true,
+    synchronize: true,
+    entities: [User, Post],
+  });
 
   const app = express();
+  !__prod__ && app.set("trust proxy", 1);
 
   app.use(
     cors({
@@ -41,6 +50,9 @@ const main = async () => {
         httpOnly: true,
         sameSite: "lax",
         secure: __prod__,
+        // httpOnly: false,
+        // sameSite: "none",
+        // secure: true,
       },
     })
   );
@@ -50,7 +62,7 @@ const main = async () => {
       resolvers: [UserResolver, PostResolver],
       validate: false,
     }),
-    context: ({ req, res }): MyContext => ({ em: orm.em, req, res, redis }),
+    context: ({ req, res }): MyContext => ({ req, res, redis }),
   });
 
   await apolloServer.start();

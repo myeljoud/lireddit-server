@@ -1,59 +1,74 @@
-import { Arg, Ctx, Int, Mutation, Query, Resolver } from "type-graphql";
+import {
+  Arg,
+  Ctx,
+  Mutation,
+  Query,
+  Resolver,
+  UseMiddleware,
+} from "type-graphql";
 import { Post } from "../entities/Post";
+import { isAuth } from "../middleware/isAuth";
 import { MyContext } from "../types";
+import { createPostValidation } from "../utils/createPostValidation";
+import { PostInput } from "./PostInput";
+import { PostResponse } from "./PostResponse";
 
 @Resolver()
 export class PostResolver {
   @Query(() => [Post])
-  posts(@Ctx() { em }: MyContext): Promise<Post[]> {
-    return em.find(Post, {});
+  posts(): Promise<Post[]> {
+    return Post.find();
   }
 
   @Query(() => Post, { nullable: true })
-  post(
-    @Arg("id", () => Int) id: number,
-    @Ctx() { em }: MyContext
-  ): Promise<Post | null> {
-    return em.findOne(Post, { id });
+  post(@Arg("id") id: number): Promise<Post | undefined> {
+    return Post.findOne(id);
   }
 
-  @Mutation(() => Post)
+  @Mutation(() => PostResponse)
+  @UseMiddleware(isAuth)
   async createPost(
-    @Arg("title", () => String) title: string,
-    @Arg("body", () => String) body: string,
-    @Ctx() { em }: MyContext
-  ): Promise<Post> {
-    const post = em.create(Post, { title, body });
-    await em.persistAndFlush(post);
-    return post;
+    @Arg("inputs") inputs: PostInput,
+    @Ctx() { req }: MyContext
+  ): Promise<PostResponse> {
+    const errors = createPostValidation(inputs);
+
+    if (errors) {
+      return { errors };
+    }
+
+    const post = await Post.create({
+      ...inputs,
+      authorId: req.session.userId,
+    }).save();
+
+    return { post };
   }
 
   @Mutation(() => Post, { nullable: true })
   async updatePost(
-    @Arg("id", () => Int) id: number,
-    @Arg("title", () => String, { nullable: true }) title: string,
-    @Arg("body", () => String, { nullable: true }) body: string,
-    @Ctx() { em }: MyContext
-  ): Promise<Post | null> {
-    const post = await em.findOne(Post, { id });
+    @Arg("id") id: number,
+    @Arg("title", { nullable: true }) title: string,
+    @Arg("body", { nullable: true }) body: string
+  ): Promise<Post | undefined> {
+    let post = await Post.findOne(id);
+
     if (!post) {
-      return null;
+      return undefined;
     }
+
     if (typeof title !== "undefined" && typeof body !== "undefined") {
-      post.title = title;
-      post.body = body;
-      await em.persistAndFlush(post);
+      const p = await Post.update({ id }, { title, body });
+      console.log("Updatedpost: ", p);
     }
+
     return post;
   }
 
   @Mutation(() => Boolean)
-  async deletePost(
-    @Arg("id", () => Int) id: number,
-    @Ctx() { em }: MyContext
-  ): Promise<boolean> {
+  async deletePost(@Arg("id") id: number): Promise<boolean> {
     try {
-      await em.nativeDelete(Post, { id });
+      await Post.delete(id);
       return true;
     } catch (err) {
       console.log(err);
