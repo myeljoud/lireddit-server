@@ -17,7 +17,7 @@ import { MyContext } from "./types";
 const main = async () => {
   await createConnection({
     type: "postgres",
-    database: "lireddit2",
+    database: "lireddit",
     username: "postgres",
     password: "Mohamed@27020450",
     logging: true,
