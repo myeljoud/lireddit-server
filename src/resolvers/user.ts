@@ -109,7 +109,12 @@ export class UserResolver {
 
     const passwordResetEmailBody = `<div><h1>Reset your password?</h1><p>If you requested a password reset for ${email}, click the link below. If you didn't make this request, ignore this email.</p><a style="color: "#285e61';" href="${passwordResetUrl}">Reset password</a><br /><br /><small>Link valid for 1 day!</small></div>`;
 
-    await sendEmail(email, passwordResetEmailSubject, passwordResetEmailBody);
+    try {
+      await sendEmail(email, passwordResetEmailSubject, passwordResetEmailBody);
+    } catch (error) {
+      // An Error occured
+      console.error("NodeMailer Error: ", error);
+    }
 
     return true;
   }

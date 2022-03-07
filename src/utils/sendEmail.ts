@@ -5,12 +5,11 @@ export async function sendEmail(to: string, subject: string, html: string) {
 
   // create reusable transporter object using the default SMTP transport
   const transporter = nodemailer.createTransport({
-    host: "smtp.ethereal.email",
-    port: 587,
-    secure: false, // true for 465, false for other ports
+    host: "smtp.mailtrap.io",
+    port: 2525,
     auth: {
-      user: "iedk7ubdponpg5vq@ethereal.email",
-      pass: "4tbf7s4TSTwn8rsTP3",
+      user: "b7d248678e193a",
+      pass: "353fc16af492ca",
     },
   });
 
