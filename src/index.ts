@@ -7,7 +7,7 @@ import Redis from "ioredis";
 import "reflect-metadata";
 import { buildSchema } from "type-graphql";
 import { createConnection } from "typeorm";
-import { COOKIE_NAME, __prod__ } from "./constants";
+import { COOKIE_NAME, PORT, __prod__ } from "./constants";
 import { Post } from "./entities/Post";
 import { User } from "./entities/User";
 import { PostResolver } from "./resolvers/post";
@@ -36,7 +36,7 @@ const main = async () => {
   );
 
   const RedisStore = connectRedis(session);
-  const redis = new Redis(process.env.REDIS_URL);
+  const redis = new Redis();
 
   app.use(
     session({
@@ -69,8 +69,8 @@ const main = async () => {
 
   apolloServer.applyMiddleware({ app, cors: false });
 
-  app.listen(4000, () => {
-    console.log(`listening on http://localhost:${4000}`);
+  app.listen(PORT, () => {
+    console.log(`listening on http://localhost:${PORT}`);
   });
 };
 
