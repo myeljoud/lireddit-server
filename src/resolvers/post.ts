@@ -17,7 +17,7 @@ import { PostResponse } from "./PostResponse";
 export class PostResolver {
   @Query(() => [Post])
   posts(): Promise<Post[]> {
-    return Post.find();
+    return Post.find().then(res => res.reverse());
   }
 
   @Query(() => Post, { nullable: true })
