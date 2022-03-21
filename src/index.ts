@@ -13,6 +13,7 @@ import { User } from "./entities/User";
 import { PostResolver } from "./resolvers/post";
 import { UserResolver } from "./resolvers/user";
 import { MyContext } from "./types";
+import path from "path";
 
 const main = async () => {
   await createConnection({
@@ -22,6 +23,7 @@ const main = async () => {
     password: "Mohamed@27020450",
     logging: true,
     synchronize: true,
+    migrations: [path.join(__dirname, "./migrations/*")],
     entities: [User, Post],
   });
 

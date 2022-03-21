@@ -1,9 +1,12 @@
 import {
   Arg,
   Ctx,
+  FieldResolver,
+  Int,
   Mutation,
   Query,
   Resolver,
+  Root,
   UseMiddleware,
 } from "type-graphql";
 import { Post } from "../entities/Post";
@@ -12,12 +15,33 @@ import { MyContext } from "../types";
 import { createPostValidation } from "../utils/createPostValidation";
 import { PostInput } from "./PostInput";
 import { PostResponse } from "./PostResponse";
+import { getConnection } from "typeorm";
 
-@Resolver()
+@Resolver(Post)
 export class PostResolver {
+  @FieldResolver(() => String)
+  bodySnippet(@Root() root: Post) {
+    const dotDotDot = root.body.length > 50 ? "..." : "";
+    return root.body.slice(0, 50) + dotDotDot;
+  }
+
   @Query(() => [Post])
-  posts(): Promise<Post[]> {
-    return Post.find().then(res => res.reverse());
+  async posts(
+    @Arg("limit", () => Int) limit: number,
+    @Arg("cursor", () => String, { nullable: true }) cursor: string | null
+  ): Promise<Post[]> {
+    const realLimit = Math.min(50, limit);
+    const qb = getConnection()
+      .getRepository(Post)
+      .createQueryBuilder("posts")
+      .orderBy('"createdAt"', "DESC")
+      .take(realLimit);
+
+    if (cursor) {
+      qb.where('"createdAt" < :cursor', { cursor: new Date(parseInt(cursor)) });
+    }
+
+    return qb.getMany();
   }
 
   @Query(() => Post, { nullable: true })
