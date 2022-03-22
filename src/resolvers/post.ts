@@ -98,8 +98,7 @@ export class PostResolver {
     }
 
     if (typeof title !== "undefined" && typeof body !== "undefined") {
-      const p = await Post.update({ id }, { title, body });
-      console.log("Updatedpost: ", p);
+      await Post.update({ id }, { title, body });
     }
 
     return post;
