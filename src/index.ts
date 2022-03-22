@@ -27,6 +27,8 @@ const main = async () => {
     entities: [User, Post],
   });
 
+  // Post.delete({});
+
   const app = express();
   !__prod__ && app.set("trust proxy", 1);
 
