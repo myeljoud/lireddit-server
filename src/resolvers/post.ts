@@ -1,9 +1,11 @@
 import {
   Arg,
   Ctx,
+  Field,
   FieldResolver,
   Int,
   Mutation,
+  ObjectType,
   Query,
   Resolver,
   Root,
@@ -17,6 +19,14 @@ import { PostInput } from "./PostInput";
 import { PostResponse } from "./PostResponse";
 import { getConnection } from "typeorm";
 
+@ObjectType()
+class PaginatedPosts {
+  @Field(() => [Post])
+  posts: Post[];
+  @Field()
+  hasMore: boolean;
+}
+
 @Resolver(Post)
 export class PostResolver {
   @FieldResolver(() => String)
@@ -25,23 +35,29 @@ export class PostResolver {
     return root.body.slice(0, 50) + dotDotDot;
   }
 
-  @Query(() => [Post])
+  @Query(() => PaginatedPosts)
   async posts(
     @Arg("limit", () => Int) limit: number,
     @Arg("cursor", () => String, { nullable: true }) cursor: string | null
-  ): Promise<Post[]> {
+  ): Promise<PaginatedPosts> {
     const realLimit = Math.min(50, limit);
+    const realLimitPlusOne = realLimit + 1;
+
     const qb = getConnection()
       .getRepository(Post)
       .createQueryBuilder("posts")
       .orderBy('"createdAt"', "DESC")
-      .take(realLimit);
+      .take(realLimitPlusOne);
 
     if (cursor) {
       qb.where('"createdAt" < :cursor', { cursor: new Date(parseInt(cursor)) });
     }
 
-    return qb.getMany();
+    const allPosts = await qb.getMany();
+    const posts = allPosts.slice(0, realLimit);
+    const hasMore = allPosts.length === realLimitPlusOne;
+
+    return { posts, hasMore };
   }
 
   @Query(() => Post, { nullable: true })
