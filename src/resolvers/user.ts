@@ -1,5 +1,13 @@
 import argon2 from "argon2";
-import { Arg, Ctx, Mutation, Query, Resolver } from "type-graphql";
+import {
+  Arg,
+  Ctx,
+  FieldResolver,
+  Mutation,
+  Query,
+  Resolver,
+  Root,
+} from "type-graphql";
 import { v4 } from "uuid";
 import { COOKIE_NAME, emailPattern, PASSWORD_RESET_PREFIX } from "../constants";
 import { User } from "../entities/User";
@@ -16,8 +24,17 @@ import { RegisterInputs } from "./RegisterInputs";
 import { UserResponse } from "./UserResponse";
 import { getConnection } from "typeorm";
 
-@Resolver()
+@Resolver(User)
 export class UserResolver {
+  @FieldResolver()
+  email(@Root() user: User, @Ctx() { req }: MyContext) {
+    if (req.session.userId === user.id) {
+      return user.email;
+    }
+
+    return "";
+  }
+
   @Query(() => User, { nullable: true })
   async me(@Ctx() { req }: MyContext): Promise<User | undefined> {
     if (!req.session.userId) {
