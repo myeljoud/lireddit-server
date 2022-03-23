@@ -1,4 +1,4 @@
-import { Updoot } from "src/entities/Updoot";
+import { Updoot } from "../entities/Updoot";
 import { MyContext } from "src/types";
 import { Arg, Ctx, Int, Mutation, Resolver } from "type-graphql";
 import { getConnection } from "typeorm";
@@ -12,8 +12,13 @@ export class UpdootResolver {
     @Ctx() { req }: MyContext
   ) {
     const { userId } = req.session;
-    const isUpdoot = value > 0;
-    const realValue = isUpdoot ? 1 : -1;
+    let realValue = 0;
+
+    if (value > 0) {
+      realValue = 1;
+    } else if (value < 0) {
+      realValue = -1;
+    }
 
     try {
       await Updoot.insert({ postId, userId, value: realValue });
@@ -28,7 +33,7 @@ export class UpdootResolver {
       set points = points + $1
       where id = $2
     `,
-      [realValue, userId]
+      [realValue, postId]
     );
 
     return true;

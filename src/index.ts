@@ -4,17 +4,18 @@ import cors from "cors";
 import express from "express";
 import session from "express-session";
 import Redis from "ioredis";
+import path from "path";
 import "reflect-metadata";
 import { buildSchema } from "type-graphql";
 import { createConnection } from "typeorm";
 import { COOKIE_NAME, PORT, __prod__ } from "./constants";
 import { Post } from "./entities/Post";
+import { Updoot } from "./entities/Updoot";
 import { User } from "./entities/User";
 import { PostResolver } from "./resolvers/post";
+import { UpdootResolver } from "./resolvers/updoot";
 import { UserResolver } from "./resolvers/user";
 import { MyContext } from "./types";
-import path from "path";
-import { Updoot } from "./entities/Updoot";
 
 const main = async () => {
   await createConnection({
@@ -64,7 +65,7 @@ const main = async () => {
 
   const apolloServer = new ApolloServer({
     schema: await buildSchema({
-      resolvers: [UserResolver, PostResolver],
+      resolvers: [UserResolver, PostResolver, UpdootResolver],
       validate: false,
     }),
     context: ({ req, res }): MyContext => ({ req, res, redis }),
